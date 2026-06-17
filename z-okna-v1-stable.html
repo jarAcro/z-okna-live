@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Z Okna — Live</title>
+<!--
+  ╔══════════════════════════════════════════════════════╗
+  ║  Z OKNA — LIVE                                       ║
+  ║  Quick reference:                                    ║
+  ║  - Installation presets:  search DEFAULT_PRESET      ║
+  ║  - Time-of-day scenes:    search DEFAULT_SCENES      ║
+  ║  - Light coin colours:    search palColors           ║
+  ║  - Coin count / quality:  search NUM_COINS           ║
+  ╚══════════════════════════════════════════════════════╝
+-->
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0a;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;font-family:system-ui,sans-serif;color:#ccc}
+#start-screen{display:flex;flex-direction:column;align-items:center;gap:1rem;text-align:center;max-width:440px}
+#start-screen h1{font-size:1.5rem;font-weight:300;color:#ddd;letter-spacing:.08em}
+#start-screen p{font-size:13px;color:#555;line-height:1.7}
+#btn-start{font-size:14px;padding:10px 28px;border-radius:10px;border:.5px solid #555;background:transparent;cursor:pointer;color:#ccc;margin-top:.5rem}
+#btn-start:hover{background:#1f1f1f}
+#app{display:none;flex-direction:column;align-items:center;width:100%;max-width:740px}
+
+/* Preset bar */
+#preset-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:.5rem;width:100%}
+.preset-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:.5px solid #333;background:transparent;cursor:pointer;color:#aaa}
+.preset-btn:hover{background:#222;color:#ddd}
+.preset-btn.active{border-color:#adf;color:#adf}
+#preset-save-wrap{display:flex;gap:6px;margin-left:auto}
+#preset-name-input{font-size:11px;padding:4px 8px;border-radius:6px;border:.5px solid #333;background:#1a1a1a;color:#ddd;width:110px}
+#btn-save-preset,#btn-delete-preset{font-size:11px;padding:4px 9px;border-radius:6px;border:.5px solid #333;background:transparent;cursor:pointer;color:#aaa}
+#btn-delete-preset{color:#f88}
+
+/* Transport */
+#transport{display:flex;align-items:center;gap:6px;width:100%;margin-bottom:.6rem;flex-wrap:wrap}
+#transport button,#transport select{font-size:12px;padding:5px 10px;border-radius:8px;border:.5px solid #333;background:transparent;cursor:pointer;color:#ccc;white-space:nowrap}
+#transport button:hover{background:#1f1f1f}
+#transport select{background:#1a1a1a;flex:1;min-width:90px;max-width:180px}
+button.rec{color:#f55;border-color:#f55}
+button.rec.active{background:#f55;color:#111}
+button.on{color:#adf;border-color:#adf}
+#rec-indicator{display:none;align-items:center;gap:5px;font-size:11px;color:#f55}
+#rec-dot{width:7px;height:7px;border-radius:50%;background:#f55;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* Controls panel */
+#ui{display:flex;flex-direction:column;gap:8px;padding:.7rem .9rem;border:.5px solid #2a2a2a;border-radius:8px;background:#161616;margin-bottom:1rem;width:100%}
+.slabel{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#666;padding-bottom:3px;border-bottom:.5px solid #2a2a2a;margin-top:4px;display:block}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.c{display:flex;align-items:center;gap:6px;font-size:12px;color:#888}
+.c label{white-space:nowrap}
+.c input[type=range]{width:72px;accent-color:#aaa}
+.c span.pv{font-size:12px;font-weight:500;color:#ddd;min-width:28px}
+.c select,.c input[type=color]{font-size:12px;background:#1a1a1a;color:#ddd;border:.5px solid #333;border-radius:4px;padding:2px 4px}
+.c input[type=color]{width:36px;height:22px;padding:1px;cursor:pointer}
+
+/* Stage */
+#stage{position:relative;width:100%}
+#main-cv{display:block;width:100%;border-radius:12px}
+#grab-flash{display:none;position:absolute;inset:0;background:#fff;border-radius:12px;pointer-events:none;opacity:0;transition:opacity .15s}
+
+/* Import */
+#import-zone{display:none;flex-direction:column;gap:6px;margin-top:4px;width:100%}
+#import-dropzone{width:100%;padding:12px;border:1.5px dashed #3a3a3a;border-radius:8px;text-align:center;cursor:pointer;font-size:12px;color:#666;transition:border-color .2s,background .2s}
+#import-dropzone:hover,#import-dropzone.drag{border-color:#666;background:#1c1c1c;color:#aaa}
+#import-name{font-size:11px;color:#5a5;display:none;margin-top:2px}
+#tex-import{display:none}
+
+/* Scene indicator */
+#scene-indicator{display:flex;align-items:center;gap:8px;font-size:11px;color:#555;margin-bottom:.4rem;width:100%}
+#scene-name{color:#7ac;font-weight:500}
+#scene-bar-wrap{flex:1;height:3px;background:#1e1e1e;border-radius:2px;overflow:hidden}
+#scene-bar{height:100%;background:linear-gradient(90deg,#2a4a6a,#6a8aaa);width:0%;transition:width .5s}
+
+/* Kiosk */
+body.kiosk #app>*:not(#stage){display:none!important}
+body.kiosk{padding:0}
+body.kiosk #main-cv{border-radius:0;width:100vw;height:100vh}
+#kiosk-hint{display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(255,255,255,0.12);letter-spacing:.08em;pointer-events:none}
+body.kiosk #kiosk-hint{display:block}
+video,canvas{display:none}
+#main-cv{display:block}
+
+/* Scene editor modal */
+#scene-modal{display:none;position:fixed;inset:0;z-index:8888;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:1rem}
+#scene-modal-box{background:#111;border:.5px solid #2a2a2a;border-radius:12px;width:100%;max-width:680px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+#scene-modal-head{display:flex;align-items:center;gap:10px;padding:.75rem 1rem;border-bottom:.5px solid #1e1e1e;flex-shrink:0}
+#scene-modal-head h2{font-size:13px;font-weight:500;color:#ccc;letter-spacing:.05em;flex:1}
+#scene-modal-head p{font-size:11px;color:#444;line-height:1.5;flex:2}
+#btn-scene-close{font-size:12px;padding:5px 12px;border-radius:7px;border:.5px solid #333;background:transparent;cursor:pointer;color:#aaa;flex-shrink:0}
+#scene-tabs{display:flex;border-bottom:.5px solid #1e1e1e;flex-shrink:0;overflow-x:auto}
+.scene-tab{font-size:11px;padding:8px 14px;background:transparent;border:none;cursor:pointer;color:#555;white-space:nowrap;border-bottom:2px solid transparent;transition:color .2s,border-color .2s}
+.scene-tab:hover{color:#aaa}
+.scene-tab.active{color:#adf;border-bottom-color:#adf}
+.scene-tab-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:middle}
+#scene-content{overflow-y:auto;padding:1rem;flex:1}
+.sc{display:flex;align-items:center;gap:6px;font-size:12px;color:#888;margin-bottom:6px}
+.sc label{white-space:nowrap;min-width:110px;color:#666}
+.sc input[type=range]{width:110px;accent-color:#7ac}
+.sc span.sv{font-size:12px;font-weight:500;color:#bbb;min-width:38px}
+.sc select{font-size:12px;background:#1a1a1a;color:#ddd;border:.5px solid #333;border-radius:4px;padding:2px 6px}
+.sc input[type=color]{width:36px;height:22px;padding:1px;cursor:pointer;background:#1a1a1a;border:.5px solid #333;border-radius:4px}
+.sc-section{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#555;padding:8px 0 4px;border-bottom:.5px solid #222;margin-bottom:4px;width:100%}
+#scene-footer{display:flex;align-items:center;gap:8px;padding:.75rem 1rem;border-top:.5px solid #1e1e1e;flex-shrink:0;flex-wrap:wrap}
+#scene-footer button{font-size:11px;padding:5px 12px;border-radius:7px;border:.5px solid #333;background:transparent;cursor:pointer;color:#aaa}
+#scene-footer button:hover{background:#1e1e1e;color:#ddd}
+#btn-scene-export{color:#7ac;border-color:#7ac}
+#scene-import-file{display:none}
+#scene-status{font-size:11px;color:#5a5;margin-left:auto}
+</style>
+</head>
+<body>
+
+<div id="start-screen">
+  <h1>Z Okna</h1>
+  <p>Motion becomes shadow. Light shimmers through the surface.<br>An interactive light installation.</p>
+  <button id="btn-start">Enable camera</button>
+  <p id="err-msg" style="color:#f55;font-size:12px;display:none;margin-top:.5rem"></p>
+</div>
+
+<div id="app">
+  <div id="preset-bar">
+    <span style="font-size:11px;color:#555;white-space:nowrap">Presets:</span>
+    <div id="preset-list"></div>
+    <div id="preset-save-wrap">
+      <input type="text" id="preset-name-input" placeholder="Preset name…">
+      <button id="btn-save-preset">Save</button>
+      <button id="btn-delete-preset">Delete</button>
+    </div>
+  </div>
+
+  <div id="transport">
+    <select id="cam-select"></select>
+    <button id="btn-mirror">⇄ Mirror</button>
+    <button id="btn-invert">☯ Invert</button>
+    <button id="btn-reset">↺ Reset</button>
+    <div id="rec-indicator"><div id="rec-dot"></div> REC</div>
+    <button id="btn-rec" class="rec">⏺ Record</button>
+    <button id="btn-grab">📷 Frame</button>
+    <button id="btn-kiosk">⬛ Kiosk</button>
+    <button id="btn-edit-scenes" style="color:#7ac;border-color:#7ac">✦ Edit Scenes</button>
+  </div>
+
+  <div id="scene-indicator">
+    <span id="scene-name">—</span>
+    <div id="scene-bar-wrap"><div id="scene-bar"></div></div>
+    <span id="scene-blend-info" style="font-size:10px;color:#444"></span>
+  </div>
+
+  <div id="ui">
+    <div class="slabel">Surface</div>
+    <div class="row">
+      <div class="c"><label>Hue</label><input type="range" class="p" data-p="BGH" min="0" max="360" step="1" value="35"><span class="pv" data-pv="BGH">35</span></div>
+      <div class="c"><label>Saturation</label><input type="range" class="p" data-p="BGS" min="0" max="60" step="1" value="14"><span class="pv" data-pv="BGS">14</span></div>
+      <div class="c"><label>Lightness</label><input type="range" class="p" data-p="BGL" min="5" max="95" step="1" value="25"><span class="pv" data-pv="BGL">25</span></div>
+      <div class="c"><label>Zoom</label><input type="range" class="p" data-p="ZOOM" min="0.5" max="3.0" step="0.05" value="1.0"><span class="pv" data-pv="ZOOM">1.00</span></div>
+      <div class="c"><label>Background</label>
+        <select class="p" data-p="MATERIAL">
+          <option value="plain" selected>Plain colour</option>
+          <option value="import">Import image / video…</option>
+        </select>
+      </div>
+      <div class="c"><label>Opacity</label><input type="range" class="p" data-p="TEX_DEPTH" min="0" max="1" step="0.05" value="0.10"><span class="pv" data-pv="TEX_DEPTH">0.10</span></div>
+    </div>
+    <div id="import-zone">
+      <div id="import-dropzone"><strong>Click or drag</strong> an image or video here<br>
+        <span style="font-size:11px;color:#555;display:block;margin-top:3px">PNG, JPG, MP4, WebM — video loops automatically</span>
+      </div>
+      <input type="file" id="tex-import" accept="image/*,video/*">
+      <span id="import-name"></span>
+    </div>
+
+    <div class="slabel">Image / video grading</div>
+    <div class="row">
+      <div class="c"><label>Blend</label>
+        <select class="p" data-p="BG_BLEND">
+          <option value="normal">Normal</option>
+          <option value="screen">Screen</option>
+          <option value="multiply">Multiply</option>
+          <option value="overlay" selected>Overlay</option>
+          <option value="soft-light">Soft light</option>
+          <option value="hard-light">Hard light</option>
+          <option value="color-dodge">Dodge</option>
+          <option value="color-burn">Burn</option>
+          <option value="luminosity">Luminosity</option>
+        </select>
+      </div>
+      <div class="c"><label>Contrast</label><input type="range" class="p" data-p="BG_CONTRAST" min="0.5" max="3.0" step="0.05" value="2.5"><span class="pv" data-pv="BG_CONTRAST">2.50</span></div>
+      <div class="c"><label>Brightness</label><input type="range" class="p" data-p="BG_BRIGHT" min="0.2" max="2.0" step="0.05" value="1.0"><span class="pv" data-pv="BG_BRIGHT">1.00</span></div>
+      <div class="c"><label>Saturation</label><input type="range" class="p" data-p="BG_SAT" min="0" max="3.0" step="0.05" value="1.0"><span class="pv" data-pv="BG_SAT">1.00</span></div>
+      <div class="c"><label>Duo A</label><input type="color" class="p" data-p="DUO_A" value="#000000"></div>
+      <div class="c"><label>Duo B</label><input type="color" class="p" data-p="DUO_B" value="#ffffff"></div>
+      <div class="c"><label>Duo mix</label><input type="range" class="p" data-p="DUO_MIX" min="0" max="1" step="0.05" value="1.0"><span class="pv" data-pv="DUO_MIX">1.00</span></div>
+      <div class="c"><label>Vignette</label><input type="range" class="p" data-p="VIGNETTE" min="0" max="1" step="0.05" value="0.2"><span class="pv" data-pv="VIGNETTE">0.20</span></div>
+    </div>
+
+    <div class="slabel">Slat overlay</div>
+    <div class="row">
+      <div class="c"><label>On</label><input type="checkbox" class="p" data-p="SLAT_ON"></div>
+      <div class="c"><label>Angle °</label><input type="range" class="p" data-p="SLAT_ANG" min="0" max="180" step="1" value="85"><span class="pv" data-pv="SLAT_ANG">85</span></div>
+      <div class="c"><label>Slat width</label><input type="range" class="p" data-p="SLAT_W" min="4" max="160" step="2" value="90"><span class="pv" data-pv="SLAT_W">90</span></div>
+      <div class="c"><label>Gap width</label><input type="range" class="p" data-p="GAP_W" min="2" max="80" step="1" value="18"><span class="pv" data-pv="GAP_W">18</span></div>
+      <div class="c"><label>Softness</label><input type="range" class="p" data-p="SLAT_BLUR" min="1" max="80" step="1" value="40"><span class="pv" data-pv="SLAT_BLUR">40</span></div>
+      <div class="c"><label>Depth</label><input type="range" class="p" data-p="SLAT_DEPTH" min="0.1" max="1.0" step="0.05" value="1.0"><span class="pv" data-pv="SLAT_DEPTH">1.00</span></div>
+      <div class="c"><label>Offset</label><input type="range" class="p" data-p="SLAT_OFF" min="0" max="200" step="1" value="45"><span class="pv" data-pv="SLAT_OFF">45</span></div>
+    </div>
+
+    <div class="slabel">Live weather</div>
+    <div class="row">
+      <div class="c"><label>Location</label>
+        <select id="weather-select">
+          <option value="none" selected>Off</option>
+          <option value="zamosc">Zamość, Poland</option>
+          <option value="mesa">Mesa, Arizona</option>
+        </select>
+      </div>
+      <div class="c"><button id="btn-weather-fetch" style="font-size:12px;padding:4px 10px;border-radius:6px;border:.5px solid #333;background:transparent;cursor:pointer;color:#aaa">↻ Fetch</button></div>
+      <div class="c" style="flex:1"><span id="weather-status" style="font-size:11px;color:#555;font-style:italic">No weather data</span></div>
+    </div>
+
+    <div class="slabel">Audio</div>
+    <div class="row">
+      <div class="c">
+        <button id="btn-audio-import" style="font-size:12px;padding:4px 10px;border-radius:6px;border:.5px solid #333;background:transparent;cursor:pointer;color:#aaa">🎵 Import audio</button>
+        <input type="file" id="audio-import" accept="audio/*,video/mp4" style="display:none">
+        <span id="audio-name" style="font-size:11px;color:#5a5;display:none"></span>
+      </div>
+      <div class="c"><label>Volume</label><input type="range" id="audio-vol" min="0" max="1" step="0.05" value="0.8"><span id="audio-vol-out">0.80</span></div>
+      <div class="c"><label>Loop</label><input type="checkbox" id="audio-loop" checked></div>
+      <div class="c">
+        <button id="btn-audio-play" style="display:none;font-size:12px;padding:4px 10px;border-radius:6px;border:.5px solid #333;background:transparent;cursor:pointer;color:#aaa">▶ Play</button>
+        <button id="btn-audio-stop" style="display:none;font-size:12px;padding:4px 10px;border-radius:6px;border:.5px solid #333;background:transparent;cursor:pointer;color:#aaa">⏹ Stop</button>
+      </div>
+      <div class="c" style="flex:1">
+        <div id="audio-progress" style="flex:1;height:3px;background:#333;border-radius:2px;min-width:80px;cursor:pointer;overflow:hidden">
+          <div id="audio-progress-fill" style="height:100%;background:#666;width:0%"></div>
+        </div>
+        <span id="audio-time" style="font-size:11px;color:#555">--:--</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="stage">
+    <canvas id="main-cv"></canvas>
+    <div id="grab-flash"></div>
+  </div>
+</div>
+
+<div id="kiosk-hint">Shift+K to exit · Shift+S for settings</div>
+
+<!-- Scene editor modal -->
+<div id="scene-modal">
+  <div id="scene-modal-box">
+    <div id="scene-modal-head">
+      <h2>✦ Time-of-Day Scenes</h2>
+      <p>Define how light and shadow behave at each time of day. The live engine blends between them automatically based on real sun position.</p>
+      <button id="btn-scene-close">✕ Close</button>
+    </div>
+    <div id="scene-tabs"></div>
+    <div id="scene-content"></div>
+    <div id="scene-footer">
+      <button id="btn-scene-reset-all">Reset all to defaults</button>
+      <button id="btn-scene-export">↓ Export scenes</button>
+      <button id="btn-scene-import-btn">↑ Import scenes</button>
+      <input type="file" id="scene-import-file" accept=".json">
+      <span id="scene-status"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden media elements -->
+<video id="cam" autoplay playsinline muted></video>
+<video id="bg-vid" autoplay playsinline muted loop style="display:none"></video>
+<canvas id="c-cur"></canvas>
+<canvas id="lfc"></canvas>
+<canvas id="texc"></canvas>
+<canvas id="shc"></canvas>
+<canvas id="gradc"></canvas>
+
+<script>
+'use strict';
+// ══════════════════════════════════════════════════════════════
+//  INSTALLATION PRESETS  (surface, grading, slats, audio)
+// ══════════════════════════════════════════════════════════════
+const DEFAULT_PRESET={
+  BGH:35,BGS:14,BGL:25,ZOOM:1.0,MATERIAL:'plain',TEX_DEPTH:0.10,
+  BG_BLEND:'overlay',BG_CONTRAST:2.5,BG_BRIGHT:1.0,BG_SAT:1.0,
+  DUO_A:'#000000',DUO_B:'#ffffff',DUO_MIX:1.0,VIGNETTE:0.2,
+  SLAT_ON:false,SLAT_ANG:85,SLAT_W:90,GAP_W:18,SLAT_BLUR:40,SLAT_DEPTH:1.0,SLAT_OFF:45,
+};
+const BUILTIN_PRESETS={
+  'Morning window':{SLAT_ON:true,SLAT_ANG:85,SLAT_W:90,GAP_W:18,SLAT_BLUR:40,SLAT_DEPTH:1,SLAT_OFF:45,BGH:35,BGS:14,BGL:25,VIGNETTE:0.2},
+  'Z Okna':{BGH:38,BGS:10,BGL:22,ZOOM:1.1,MATERIAL:'import',TEX_DEPTH:0.75,BG_BLEND:'soft-light',BG_CONTRAST:0.85,BG_BRIGHT:0.8,BG_SAT:0.25,DUO_A:'#08050f',DUO_B:'#f5ddb0',DUO_MIX:0.6,VIGNETTE:0.65,SLAT_ON:true,SLAT_ANG:88,SLAT_W:80,GAP_W:14,SLAT_BLUR:38,SLAT_DEPTH:0.9,SLAT_OFF:30},
+  'Memory':{BGH:35,BGS:5,BGL:20,MATERIAL:'import',TEX_DEPTH:0.7,BG_BLEND:'soft-light',BG_CONTRAST:0.8,BG_BRIGHT:0.85,BG_SAT:0.3,DUO_A:'#0a0510',DUO_B:'#ffe8c0',DUO_MIX:0.5,VIGNETTE:0.6},
+};
+const P=Object.assign({},DEFAULT_PRESET);
+const DECIMAL={BGH:0,BGS:0,BGL:0,ZOOM:2,TEX_DEPTH:2,BG_CONTRAST:2,BG_BRIGHT:2,BG_SAT:2,DUO_MIX:2,VIGNETTE:2,SLAT_ANG:0,SLAT_W:0,GAP_W:0,SLAT_BLUR:0,SLAT_DEPTH:2,SLAT_OFF:0};
+const TEX_PARAMS=new Set(['BGH','BGS','BGL','ZOOM','MATERIAL','TEX_DEPTH','SLAT_ON','SLAT_ANG','SLAT_W','GAP_W','SLAT_BLUR','SLAT_DEPTH','SLAT_OFF']);
+const SLAT_PARAMS=new Set(['SLAT_ON','SLAT_ANG','SLAT_W','GAP_W','SLAT_BLUR','SLAT_DEPTH','SLAT_OFF']);
+
+// ══════════════════════════════════════════════════════════════
+//  TIME-OF-DAY SCENES  (light engine only — blended by sun position)
+// ══════════════════════════════════════════════════════════════
+const DEFAULT_SCENES={
+  'Night':{
+    LINT:0.08,CSZ:135,SQZ:0.88,LANG:90,ESFT:0.55,HEIGHT:0.82,COIN_VAR:0.35,
+    SHIMMER:0.4,SHIMSPD:0.18,SUN_DRIFT:0.01,PAL:'moon',SH_TINT:'#020415',
+    SENSITIVITY:4,SDEPTH:0.5,COHESION:5,FADE:0.006,SSFT:3.8,
+  },
+  'Sunrise':{
+    LINT:0.16,CSZ:105,SQZ:0.72,LANG:155,ESFT:0.44,HEIGHT:0.68,COIN_VAR:0.55,
+    SHIMMER:0.7,SHIMSPD:0.4,SUN_DRIFT:0.015,PAL:'sunrise',SH_TINT:'#1a0508',
+    SENSITIVITY:7,SDEPTH:0.72,COHESION:4,FADE:0.014,SSFT:3.2,
+  },
+  'Morning':{
+    LINT:0.3,CSZ:75,SQZ:0.85,LANG:133,ESFT:0.34,HEIGHT:0.28,COIN_VAR:1.0,
+    SHIMMER:1.0,SHIMSPD:1.0,SUN_DRIFT:0,PAL:'warm',SH_TINT:'#001018',
+    SENSITIVITY:11,SDEPTH:1.0,COHESION:3,FADE:0.028,SSFT:2.0,
+  },
+  'Midday':{
+    LINT:0.52,CSZ:50,SQZ:0.96,LANG:0,ESFT:0.16,HEIGHT:0.04,COIN_VAR:0.28,
+    SHIMMER:0.45,SHIMSPD:1.6,SUN_DRIFT:0,PAL:'noon',SH_TINT:'#06080f',
+    SENSITIVITY:14,SDEPTH:0.88,COHESION:2,FADE:0.042,SSFT:1.4,
+  },
+  'Late Afternoon':{
+    LINT:0.36,CSZ:92,SQZ:0.62,LANG:150,ESFT:0.36,HEIGHT:0.52,COIN_VAR:0.82,
+    SHIMMER:0.82,SHIMSPD:0.52,SUN_DRIFT:0.035,PAL:'late',SH_TINT:'#180800',
+    SENSITIVITY:10,SDEPTH:0.92,COHESION:3,FADE:0.02,SSFT:2.6,
+  },
+  'Sunset':{
+    LINT:0.22,CSZ:112,SQZ:0.66,LANG:170,ESFT:0.46,HEIGHT:0.7,COIN_VAR:0.65,
+    SHIMMER:0.78,SHIMSPD:0.32,SUN_DRIFT:0.025,PAL:'sunset',SH_TINT:'#1a0210',
+    SENSITIVITY:8,SDEPTH:0.85,COHESION:4,FADE:0.013,SSFT:3.0,
+  },
+};
+const USER_SCENE_NAMES=['Night','Sunrise','Morning','Midday','Late Afternoon','Sunset'];
+
+function loadScenes(){
+  const saved=JSON.parse(localStorage.getItem('zokna-scenes')||'null');
+  const def=JSON.parse(JSON.stringify(DEFAULT_SCENES));
+  if(!saved)return def;
+  const merged=Object.assign({},def);
+  USER_SCENE_NAMES.forEach(n=>{if(saved[n])merged[n]=Object.assign({},def[n],saved[n]);});
+  return merged;
+}
+const scenes=loadScenes();
+const SCENE_KEYS=Object.keys(DEFAULT_SCENES.Night);
+// L: current blended light params — driven by celestial engine
+const L=Object.assign({},scenes.Night);
+
+// ══════════════════════════════════════════════════════════════
+//  CANVAS SETUP
+//  SW/SH: motion detection resolution (small = fast)
+//  W/H:   render resolution
+// ══════════════════════════════════════════════════════════════
+const W=680,H=420,SW=40,SH=25;
+const mainCv=document.getElementById('main-cv');
+mainCv.width=W;mainCv.height=H;
+const cx=mainCv.getContext('2d');
+const cam=document.getElementById('cam');
+const bgVid=document.getElementById('bg-vid');
+// Motion canvas (tiny — just for frame diffing)
+const cCur=document.getElementById('c-cur');cCur.width=SW;cCur.height=SH;
+const xCur=cCur.getContext('2d',{willReadFrequently:true});
+// Offscreen compositing canvases
+const lfc=document.getElementById('lfc');lfc.width=W;lfc.height=H;const lfx=lfc.getContext('2d');
+const texc=document.getElementById('texc');texc.width=W;texc.height=H;const tcx=texc.getContext('2d');
+const shc=document.getElementById('shc');shc.width=W;shc.height=H;const shx=shc.getContext('2d');
+const gradc=document.getElementById('gradc');gradc.width=W;gradc.height=H;const gcx=gradc.getContext('2d',{willReadFrequently:true});
+
+// Typed arrays — allocated once, reused every frame
+const motionField=new Float32Array(SW*SH);
+const smoothField=new Float32Array(SW*SH);
+const velocityField=new Float32Array(SW*SH);
+const shadowMemory=new Float32Array(SW*SH);
+const slatMap=new Float32Array(W*H);
+// Shadow ImageData — allocated once, reused (no GC churn)
+const shadowID=shx.createImageData(W,H);
+const shadowData=shadowID.data;
+
+let texDirty=true,importedImage=null,importedVideo=false;
+let currentStream=null,raf=null,prevFrameData=null,prevFrameSkip=0,camReady=false,t=0;
+let mirrored=true,inverted=false,kioskMode=false;
+let sunAngleOffset=0;
+
+// ── Coin field ───────────────────────────────────────────────
+const NUM_COINS=80; // balanced for Pi/iPad
+const coins=Array.from({length:NUM_COINS},()=>{
+  const u=Math.random();
+  return{
+    x:Math.random()*W, y:Math.random()*H,
+    uBase:0.6+Math.random()*0.8,
+    plBase:0.3+Math.pow(u,2.2)*1.8,
+    sizeF:0.5+Math.random(),
+    sqzVar:0.85+Math.random()*0.3,
+    angVar:(Math.random()-.5)*0.26,
+    f1:0.06+Math.random()*0.14, p1:Math.random()*Math.PI*2,
+    f2:0.25+Math.random()*0.45, p2:Math.random()*Math.PI*2,
+    f3:0.9+Math.random()*1.2,   p3:Math.random()*Math.PI*2,
+    driftX:(Math.random()-.5)*0.4, driftY:(Math.random()-.5)*0.4,
+    offX:0, offY:0,
+  };
+});
+
+// ── Autonomous state ─────────────────────────────────────────
+let breathPhase=Math.random()*Math.PI*2;
+let breathVal=1.0;
+let tempPhase=Math.random()*Math.PI*2;
+let tempDrift=0;
+
+// ── Weather / celestial state ────────────────────────────────
+const LOCATIONS={
+  zamosc:{lat:50.727228,lon:23.24494,name:'Zamość, Poland',tz:'Europe/Warsaw'},
+  mesa:{lat:33.445098,lon:-111.705191,name:'Mesa, Arizona',tz:'America/Phoenix'},
+};
+let weatherData=null,weatherKey='none';
+let nightMode=0,targetNightMode=0;
+let celestialAngle=90,targetCelestialAngle=90;
+let celestialIntensity=1,targetCelestialIntensity=1;
+let celestialElevation=45;
+let lastCelestialCalc=0;
+let weatherFetchPending=false;
+let sunAscending=true;
+
+// ── Light colour palettes ────────────────────────────────────
+const palColors={
+  moon:   {r:175,g:205,b:255},  // cool silver-blue moonlight
+  sunrise:{r:255,g:200,b:175},  // soft violet-blush
+  warm:   {r:255,g:218,b:120},  // golden amber morning
+  noon:   {r:255,g:252,b:225},  // near-white midday
+  late:   {r:255,g:190,b:85},   // deep amber-orange
+  sunset: {r:255,g:145,b:100},  // coral-magenta Arizona sunset
+};
+const PAL_OPTIONS=[
+  ['moon','Moonlight (cool silver-blue)'],
+  ['sunrise','Sunrise (violet-blush)'],
+  ['warm','Morning (golden amber)'],
+  ['noon','Midday (near-white)'],
+  ['late','Late afternoon (deep amber)'],
+  ['sunset','Sunset (coral-magenta)'],
+];
+
+// ══════════════════════════════════════════════════════════════
+//  SCENE BLENDING ENGINE
+//  Ascending:  Night → Sunrise → Morning → Midday
+//  Descending: Midday → Late Afternoon → Sunset → Night
+// ══════════════════════════════════════════════════════════════
+function smoothstep(x){return x<=0?0:x>=1?1:x*x*(3-2*x);}
+
+function getSceneBlend(elev,asc){
+  let A,B,t;
+  if(asc){
+    if(elev<=-10){A='Night';B='Night';t=0;}
+    else if(elev<0){A='Night';B='Sunrise';t=smoothstep((elev+10)/10);}
+    else if(elev<8){A='Sunrise';B='Morning';t=smoothstep(elev/8);}
+    else if(elev<32){A='Morning';B='Midday';t=smoothstep((elev-8)/24);}
+    else{A='Midday';B='Midday';t=0;}
+  } else {
+    if(elev>=32){A='Midday';B='Midday';t=0;}
+    else if(elev>=8){A='Midday';B='Late Afternoon';t=smoothstep((32-elev)/24);}
+    else if(elev>=0){A='Late Afternoon';B='Sunset';t=smoothstep((8-elev)/8);}
+    else if(elev>=-10){A='Sunset';B='Night';t=smoothstep(-elev/10);}
+    else{A='Night';B='Night';t=0;}
+  }
+  const label=t<0.12?A:t>0.88?B:`${A} → ${B}`;
+  return{A,B,t,label};
+}
+
+function applySceneBlend(elev,asc){
+  const{A,B,t,label}=getSceneBlend(elev,asc);
+  const sa=scenes[A],sb=scenes[B];
+  if(!sa||!sb)return label;
+  for(let i=0;i<SCENE_KEYS.length;i++){
+    const k=SCENE_KEYS[i];
+    if(typeof sa[k]==='number') L[k]=sa[k]+(sb[k]-sa[k])*t;
+    else L[k]=t<0.5?sa[k]:sb[k];
+  }
+  return label;
+}
+
+function updateSceneIndicator(label,elev){
+  document.getElementById('scene-name').textContent=label;
+  const pct=Math.max(0,Math.min(100,((elev+10)/70)*100));
+  document.getElementById('scene-bar').style.width=pct+'%';
+  document.getElementById('scene-blend-info').textContent=(elev>=0?'+':'')+Math.round(elev)+'° elev';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LIGHT COLOUR  — driven purely by scene PAL + organic drift
+//  nightDim reduces coin brightness but NOT shadow — shadow is
+//  driven by sdepth in buildShadowField independently
+// ══════════════════════════════════════════════════════════════
+function getLightColor(){
+  const base=palColors[L.PAL]||palColors.warm;
+  const wInt=weatherData?weatherData.intensityMod:1;
+  const td=tempDrift*0.3+(weatherData?weatherData.tempMod:0);
+  // nightDim: soften coins at night but floor at 0.35 so coins stay faintly visible
+  const nightDim=Math.max(0.35, nightMode>0.05?1-nightMode*0.65:1);
+  // celestialIntensity also floored so coins never fully vanish
+  const ci=Math.max(0.15, celestialIntensity);
+  // wInt floored at night so cloudy doesn't kill everything
+  const wi=nightMode>0.5?Math.max(0.25,wInt):Math.max(0.3,wInt);
+  return{
+    r:Math.min(255,Math.max(0,base.r+td*18|0)),
+    g:Math.min(255,Math.max(0,base.g+td*6|0)),
+    b:Math.min(255,Math.max(0,base.b-td*14|0)),
+    intensity:breathVal*wi*nightDim*ci,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════════════════════════
+function hex2rgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+function luma(r,g,b){return(77*r+150*g+29*b)>>8;} // integer approximation, no division
+
+// ── Cohesion kernel — precomputed Gaussian weights ───────────
+// Stores dx/dy offsets separately so border clamping is clean
+let _cohRadius=-1;
+let _cohDX=null,_cohDY=null,_cohWeights=null;
+function buildCohesionKernel(radius){
+  if(radius===_cohRadius)return;
+  _cohRadius=radius;
+  const r=Math.round(radius);
+  const sig2=radius*radius*0.5;
+  const dxs=[],dys=[],wts=[];
+  for(let dy=-r;dy<=r;dy++){for(let dx=-r;dx<=r;dx++){
+    dxs.push(dx);dys.push(dy);
+    wts.push(Math.exp(-(dx*dx+dy*dy)/sig2));
+  }}
+  _cohDX=dxs;_cohDY=dys;_cohWeights=wts;
+}
+
+// ── Slat map ──────────────────────────────────────────────────
+function buildSlatMap(){
+  const ar=P.SLAT_ANG*(Math.PI/180),cosA=Math.cos(ar),sinA=Math.sin(ar);
+  const pitch=P.SLAT_W+P.GAP_W,bh=Math.max(1,P.SLAT_BLUR);
+  const cx2=W/2,cy2=H/2;
+  for(let y=0;y<H;y++){for(let x=0;x<W;x++){
+    if(!P.SLAT_ON){slatMap[y*W+x]=1;continue;}
+    const proj=(x-cx2)*cosA+(y-cy2)*sinA+P.SLAT_OFF;
+    const coord=((proj%pitch)+pitch)%pitch;
+    const inSlat=coord<P.SLAT_W;
+    const d=inSlat?Math.min(coord,P.SLAT_W-coord):Math.min(coord-P.SLAT_W,pitch-coord);
+    const ef=Math.min(1,d/bh),sm=ef*ef*(3-2*ef);
+    slatMap[y*W+x]=inSlat?Math.max(0,1-sm*P.SLAT_DEPTH):1;
+  }}
+}
+
+// ── Smooth field sampler ──────────────────────────────────────
+function sampleSmooth(nx,ny){
+  const fx=Math.min(SW-1.001,nx*(SW-1)),fy=Math.min(SH-1.001,ny*(SH-1));
+  const x0=fx|0,y0=fy|0,tx=fx-x0,ty=fy-y0;
+  const i0=y0*SW+x0;
+  return(smoothField[i0]||0)*(1-tx)*(1-ty)+(smoothField[i0+1]||0)*tx*(1-ty)
+       +(smoothField[i0+SW]||0)*(1-tx)*ty+(smoothField[i0+SW+1]||0)*tx*ty;
+}
+
+// ── Grading ───────────────────────────────────────────────────
+function applyGrading(src){
+  gcx.imageSmoothingEnabled=true;
+  gcx.imageSmoothingQuality='high';
+  gcx.filter=`contrast(${P.BG_CONTRAST}) brightness(${P.BG_BRIGHT}) saturate(${P.BG_SAT})`;
+  const sw2=src.videoWidth||src.naturalWidth||W,sh2=src.videoHeight||src.naturalHeight||H;
+  const scale=Math.max(W/sw2,H/sh2)*P.ZOOM;
+  gcx.clearRect(0,0,W,H);
+  gcx.drawImage(src,(W-sw2*scale)/2,(H-sh2*scale)/2,sw2*scale,sh2*scale);
+  gcx.filter='none';
+  if(P.DUO_MIX>0.01){
+    const id=gcx.getImageData(0,0,W,H),d=id.data;
+    const[ar,ag,ab]=hex2rgb(P.DUO_A),[br,bg,bb]=hex2rgb(P.DUO_B);
+    for(let i=0;i<d.length;i+=4){
+      const lm=d[i]*299+d[i+1]*587+d[i+2]*114;
+      const ln=lm/255000;
+      const mix=P.DUO_MIX;
+      d[i]=  d[i]*(1-mix)+(ar+(br-ar)*ln)*mix+.5|0;
+      d[i+1]=d[i+1]*(1-mix)+(ag+(bg-ag)*ln)*mix+.5|0;
+      d[i+2]=d[i+2]*(1-mix)+(ab+(bb-ab)*ln)*mix+.5|0;
+    }
+    gcx.putImageData(id,0,0);
+  }
+}
+
+// ── Texture ───────────────────────────────────────────────────
+function buildTexture(){
+  const nightHue=nightMode*185,nightSat=nightMode*4,nightLit=nightMode*(-15);
+  tcx.fillStyle=`hsl(${(P.BGH+nightHue)%360},${Math.max(0,P.BGS+nightSat)}%,${Math.max(3,P.BGL+nightLit)}%)`;
+  tcx.fillRect(0,0,W,H);
+  if(P.MATERIAL==='import'&&importedImage&&!importedVideo){
+    applyGrading(importedImage);
+    tcx.save();
+    tcx.imageSmoothingEnabled=true;tcx.imageSmoothingQuality='high';
+    tcx.globalAlpha=P.TEX_DEPTH;
+    tcx.globalCompositeOperation=P.BG_BLEND==='normal'?'source-over':P.BG_BLEND;
+    tcx.drawImage(gradc,0,0);tcx.restore();
+  }
+  if(P.SLAT_ON){
+    const id=tcx.getImageData(0,0,W,H),d=id.data;
+    for(let i=0;i<W*H;i++){
+      const p=slatMap[i];
+      if(p<0.999){d[i*4]=d[i*4]*p+.5|0;d[i*4+1]=d[i*4+1]*p+.5|0;d[i*4+2]=d[i*4+2]*p+.5|0;}
+    }
+    tcx.putImageData(id,0,0);
+  }
+  texDirty=false;
+}
+
+function applyBgVideo(){
+  if(!importedVideo||bgVid.readyState<2)return;
+  tcx.fillStyle=`hsl(${P.BGH},${P.BGS}%,${P.BGL}%)`;
+  tcx.fillRect(0,0,W,H);
+  applyGrading(bgVid);
+  tcx.imageSmoothingEnabled=true;tcx.imageSmoothingQuality='high';
+  tcx.globalAlpha=P.TEX_DEPTH;
+  tcx.globalCompositeOperation=P.BG_BLEND==='normal'?'source-over':P.BG_BLEND;
+  tcx.drawImage(gradc,0,0);
+  tcx.globalAlpha=1;tcx.globalCompositeOperation='source-over';
+  if(P.SLAT_ON){
+    const id=tcx.getImageData(0,0,W,H),d=id.data;
+    for(let i=0;i<W*H;i++){
+      const p=slatMap[i];
+      if(p<0.999){d[i*4]=d[i*4]*p+.5|0;d[i*4+1]=d[i*4+1]*p+.5|0;d[i*4+2]=d[i*4+2]*p+.5|0;}
+    }
+    tcx.putImageData(id,0,0);
+  }
+}
+
+// ── Light field ───────────────────────────────────────────────
+function buildLightField(){
+  lfx.clearRect(0,0,W,H);
+  const{r,g,b,intensity}=getLightColor();
+  const heightScale=1+L.HEIGHT*1.2;
+  const heightEdge=L.ESFT+L.HEIGHT*0.25;
+  const angRad=(L.LANG+sunAngleOffset)*(Math.PI/180);
+  const globalShim=(Math.sin(t*0.8)*0.5+Math.sin(t*1.3)*0.3+Math.sin(t*2.1)*0.2)*L.SHIMMER;
+  const leakAmt=Math.max(0,globalShim)*0.22;
+  const nightBoost=1+nightMode*0.6;
+  const nightEdge=nightMode*0.18;
+  const blendMode=P.SLAT_ON?'source-over':'screen';
+
+  for(let ci=0;ci<NUM_COINS;ci++){
+    const c=coins[ci];
+    const shim=Math.sin(t*c.f1*L.SHIMSPD+c.p1)*0.5+Math.sin(t*c.f2*L.SHIMSPD+c.p2)*0.3+Math.sin(t*c.f3*L.SHIMSPD+c.p3)*0.2;
+    const shimOff=shim>0?shim*L.SHIMMER*0.35*(1-L.LINT*0.6):shim*L.SHIMMER*0.38;
+    const localM=sampleSmooth(Math.min(1,c.x/W),Math.min(1,c.y/H));
+    const bright=Math.max(0.02,Math.min(0.97,L.LINT*intensity+shimOff-localM*L.SHIMMER*0.3));
+    const rScale=c.uBase*(1-L.COIN_VAR)+c.plBase*L.COIN_VAR;
+    const R=L.CSZ*rScale*heightScale*nightBoost*(1+shim*L.SHIMMER*0.14*c.sizeF);
+    const flatTo=Math.max(0.01,1-(heightEdge+nightEdge));
+    const b0=(Math.min(0.92,bright*0.9)*255+.5|0)/255;
+    const b1=(Math.min(0.88,bright*0.88)*255+.5|0)/255;
+    const b2=(Math.min(0.80,bright*0.82)*255+.5|0)/255;
+    const b3=(bright*0.1*255+.5|0)/255;
+    lfx.save();
+    lfx.translate(c.x+c.offX,c.y+c.offY);
+    lfx.rotate(angRad+c.angVar);
+    lfx.scale(1,L.SQZ*c.sqzVar);
+    const grad=lfx.createRadialGradient(0,0,0,0,0,R);
+    grad.addColorStop(0,`rgba(${r},${g},${b},${b0.toFixed(3)})`);
+    grad.addColorStop(flatTo*0.7,`rgba(${r},${g},${b},${b1.toFixed(3)})`);
+    grad.addColorStop(flatTo,`rgba(${r},${g},${b},${b2.toFixed(3)})`);
+    grad.addColorStop(Math.min(1,flatTo+heightEdge*0.6),`rgba(${r},${g},${b},${b3.toFixed(3)})`);
+    grad.addColorStop(1,`rgba(${r},${g},${b},0)`);
+    lfx.globalCompositeOperation=blendMode;
+    lfx.beginPath();lfx.arc(0,0,R,0,Math.PI*2);lfx.fillStyle=grad;lfx.fill();
+    lfx.restore();
+  }
+
+  // Slat masking on light field — only when slats on
+  if(P.SLAT_ON){
+    const id=lfx.getImageData(0,0,W,H),d=id.data;
+    for(let i=0;i<W*H;i++){
+      const sm=slatMap[i];
+      if(sm>=0.999)continue;
+      let eff=sm;
+      if(sm>0.05&&sm<0.88&&leakAmt>0){
+        const ep=1-Math.abs(sm-0.5)*2.5;
+        if(ep>0)eff=Math.min(0.98,sm+leakAmt*ep);
+      }
+      d[i*4+3]=d[i*4+3]*eff+.5|0;
+    }
+    lfx.putImageData(id,0,0);
+  }
+}
+
+// ── Motion detection ──────────────────────────────────────────
+function processMotion(){
+  if(!camReady||cam.readyState<2)return;
+  xCur.save();
+  if(mirrored){xCur.translate(SW,0);xCur.scale(-1,1);}
+  xCur.drawImage(cam,0,0,SW,SH);
+  xCur.restore();
+  const cur=xCur.getImageData(0,0,SW,SH).data;
+  // Skip frames after a reset to let camera exposure settle
+  if(!prevFrameData||prevFrameSkip>0){
+    prevFrameData=new Uint8ClampedArray(cur);
+    if(prevFrameSkip>0)prevFrameSkip--;
+    return;
+  }
+
+  const sens=L.SENSITIVITY,fade=L.FADE;
+  for(let i=0;i<SW*SH;i++){
+    const p=i<<2;
+    const diff=Math.abs(luma(cur[p],cur[p+1],cur[p+2])-luma(prevFrameData[p],prevFrameData[p+1],prevFrameData[p+2]));
+    velocityField[i]=Math.max(0,(diff-sens)/150);
+    if(inverted){
+      motionField[i]=diff>sens?Math.max(0,motionField[i]-fade*5):Math.min(1,motionField[i]+0.015);
+    } else {
+      motionField[i]=diff>sens?Math.min(1,motionField[i]+Math.min(1,(diff-sens)/100)*0.8):Math.max(0,motionField[i]-fade);
+    }
+    const mf=motionField[i];
+    // shadowMemory: very slow accumulation of presence, fast drain
+    // drain must be fast enough that a 5-min still session clears it fully
+    if(mf>0.3) shadowMemory[i]=Math.min(1,shadowMemory[i]+mf*0.0002);
+    else shadowMemory[i]=Math.max(0,shadowMemory[i]-0.0008);
+  }
+  prevFrameData.set(cur);
+
+  // Cohesion blur — covers ALL pixels, clamps at edges instead of skipping them
+  buildCohesionKernel(L.COHESION);
+  const dxArr=_cohDX,dyArr=_cohDY,wts=_cohWeights,kLen=wts.length;
+  for(let y=0;y<SH;y++){for(let x=0;x<SW;x++){
+    let sum=0,vsum=0,wtot=0;
+    for(let k=0;k<kLen;k++){
+      const nx=Math.max(0,Math.min(SW-1,x+dxArr[k]));
+      const ny=Math.max(0,Math.min(SH-1,y+dyArr[k]));
+      const w=wts[k];
+      const ni=ny*SW+nx;
+      sum+=motionField[ni]*w;
+      vsum+=velocityField[ni]*w;
+      wtot+=w;
+    }
+    const target=sum/wtot,vel=vsum/wtot;
+    const base=y*SW+x;
+    const sf=smoothField[base];
+    smoothField[base]+=(target>sf?0.28+vel*0.18:0.09)*(target-sf);
+  }}
+}
+
+// ── Shadow field ──────────────────────────────────────────────
+function buildShadowField(){
+  const[str,stg,stb]=hex2rgb(L.SH_TINT);
+  const sdepth=Math.max(0.2, L.SDEPTH*(1-nightMode*0.45));
+  const ssft=L.SSFT;
+
+  for(let y=0;y<H;y++){
+    const ny=y/H;
+    for(let x=0;x<W;x++){
+      const nx=x/W;
+      const s0=sampleSmooth(nx,ny);
+      // Soft spread samples — give shadow physical volume
+      const s1=sampleSmooth(Math.min(1,nx+ssft/SW),ny);
+      const s2=sampleSmooth(Math.max(0,nx-ssft/SW),ny);
+      const s3=sampleSmooth(nx,Math.min(1,ny+ssft/SH));
+      const s4=sampleSmooth(nx,Math.max(0,ny-ssft/SH));
+      // shadowMemory adds a gentle trace of past presence
+      const mx=Math.min(SW-1.001,nx*(SW-1)),my=Math.min(SH-1.001,ny*(SH-1));
+      const mx0=mx|0,my0=my|0,mtx=mx-mx0,mty=my-my0;
+      const im=my0*SW+mx0;
+      const mem=(shadowMemory[im]||0)*(1-mtx)*(1-mty)+(shadowMemory[im+1]||0)*mtx*(1-mty)
+               +(shadowMemory[im+SW]||0)*(1-mtx)*mty+(shadowMemory[im+SW+1]||0)*mtx*mty;
+      // sv: 0 = no shadow, 1 = full shadow
+      const raw=(s0*2.5+s1+s2+s3+s4)/6.5+mem*0.08;
+      const sv=raw<=0?0:raw>=1?1:raw*raw*(3-2*raw);
+      const a=sv*sdepth*255+.5|0;
+      const p=(y*W+x)<<2;
+      shadowData[p]=str;shadowData[p+1]=stg;shadowData[p+2]=stb;shadowData[p+3]=a;
+    }
+  }
+  shx.putImageData(shadowID,0,0);
+}
+
+function drawVignette(){
+  if(P.VIGNETTE<0.01)return;
+  const g=cx.createRadialGradient(W/2,H/2,H*0.28,W/2,H/2,H*0.9);
+  g.addColorStop(0,'rgba(0,0,0,0)');
+  g.addColorStop(1,`rgba(0,0,0,${P.VIGNETTE.toFixed(2)})`);
+  cx.fillStyle=g;cx.fillRect(0,0,W,H);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LIVING WORLD UPDATE  (breathe, drift, celestial)
+// ══════════════════════════════════════════════════════════════
+function updateLivingWorld(){
+  // Organic breathing — imperceptible moment to moment
+  breathPhase+=0.016*0.0028;
+  const nm=nightMode;
+  const bm=(1-nm*0.5);
+  breathVal=1.0+Math.sin(breathPhase)*0.18*bm+Math.sin(breathPhase*1.618)*0.07*bm;
+  breathVal=Math.max(0.72,Math.min(1.28,breathVal));
+  // Temperature colour drift
+  tempPhase+=0.016*0.0019;
+  tempDrift=Math.sin(tempPhase)*0.55+Math.sin(tempPhase*0.618)*0.28+Math.sin(tempPhase*2.414)*0.12;
+  // Celestial (throttled — sun barely moves)
+  updateCelestial();
+  // Smooth targets
+  nightMode+=(targetNightMode-nightMode)*0.001;
+  celestialAngle+=(targetCelestialAngle-celestialAngle)*0.0005;
+  // Very slow chase — prevents sudden weather recalcs from flashing the light on/off
+  celestialIntensity+=(targetCelestialIntensity-celestialIntensity)*0.0005;
+  // Sun angle offset
+  if(L.SUN_DRIFT>0.001){sunAngleOffset+=L.SUN_DRIFT*0.016;if(sunAngleOffset>180)sunAngleOffset-=360;}
+  if(weatherKey!=='none'){sunAngleOffset+=(celestialAngle-L.LANG-sunAngleOffset)*0.001;}
+  // Blend scenes
+  const label=applySceneBlend(celestialElevation,sunAscending);
+  updateSceneIndicator(label,celestialElevation);
+  // Coin drift — very slow, organic
+  const ds=0.016/1800;
+  for(let i=0;i<NUM_COINS;i++){
+    const c=coins[i];
+    c.offX+=c.driftX*ds*W;c.offY+=c.driftY*ds*H;
+    if(Math.abs(c.offX)>W*0.08)c.driftX*=-0.98;
+    if(Math.abs(c.offY)>H*0.08)c.driftY*=-0.98;
+    c.driftX=Math.max(-0.6,Math.min(0.6,c.driftX+(Math.random()-.5)*0.001));
+    c.driftY=Math.max(-0.6,Math.min(0.6,c.driftY+(Math.random()-.5)*0.001));
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CELESTIAL POSITION  (pure math, sync, throttled to 5 min)
+// ══════════════════════════════════════════════════════════════
+function sunPos(lat,lon,date){
+  const jd=date.getTime()/86400000+2440587.5,n=jd-2451545;
+  const L2=(280.46+0.9856474*n)%360,g=(357.528+0.9856003*n)%360,gr=g*Math.PI/180;
+  const lam=(L2+1.915*Math.sin(gr)+0.02*Math.sin(2*gr))*Math.PI/180;
+  const eps=(23.439-4e-7*n)*Math.PI/180;
+  const dec=Math.asin(Math.sin(eps)*Math.sin(lam));
+  const ra=Math.atan2(Math.cos(eps)*Math.sin(lam),Math.cos(lam));
+  const gmst=(6.697375+0.0657098242*n+(date.getUTCHours()+date.getUTCMinutes()/60))*15;
+  const ha=((gmst+lon)%360-ra*180/Math.PI)*Math.PI/180;
+  const lr=lat*Math.PI/180;
+  const sinEl=Math.sin(lr)*Math.sin(dec)+Math.cos(lr)*Math.cos(dec)*Math.cos(ha);
+  const el=Math.asin(sinEl)*180/Math.PI;
+  const cosAz=(-Math.sin(lr)*sinEl+Math.sin(dec))/(Math.cos(lr)*Math.cos(Math.asin(sinEl)));
+  let az=Math.acos(Math.max(-1,Math.min(1,cosAz)))*180/Math.PI;
+  if(Math.sin(ha)>0)az=360-az;
+  return{el,az};
+}
+function moonPos(lat,lon,date){
+  const jd=date.getTime()/86400000+2440587.5,d=jd-2451545;
+  const Lm=(218.316+13.176396*d)%360,M=(134.963+13.064993*d)%360,F=(93.272+13.22935*d)%360;
+  const lam=(Lm+6.289*Math.sin(M*Math.PI/180))*Math.PI/180;
+  const beta=5.128*Math.sin(F*Math.PI/180)*Math.PI/180;
+  const eps=23.439*Math.PI/180;
+  const dec=Math.asin(Math.sin(beta)*Math.cos(eps)+Math.cos(beta)*Math.sin(eps)*Math.sin(lam));
+  const ra=Math.atan2(Math.sin(lam)*Math.cos(eps)-Math.tan(beta)*Math.sin(eps),Math.cos(lam));
+  const gmst=(6.697375+0.0657098242*d+(date.getUTCHours()+date.getUTCMinutes()/60))*15;
+  const ha=((gmst+lon)%360-ra*180/Math.PI)*Math.PI/180;
+  const lr=lat*Math.PI/180;
+  const sinEl=Math.sin(lr)*Math.sin(dec)+Math.cos(lr)*Math.cos(dec)*Math.cos(ha);
+  const el=Math.asin(sinEl)*180/Math.PI;
+  const cosAz=(-Math.sin(lr)*sinEl+Math.sin(dec))/(Math.cos(lr)*Math.cos(Math.asin(sinEl)));
+  let az=Math.acos(Math.max(-1,Math.min(1,cosAz)))*180/Math.PI;
+  if(Math.sin(ha)>0)az=360-az;
+  const phase=((Lm-282.317)%360+360)%360/360;
+  const bright=0.1+0.9*Math.pow(Math.abs(Math.sin(phase*Math.PI)),0.3);
+  return{el,az,bright};
+}
+
+function updateCelestial(){
+  const now=Date.now();
+  if(now-lastCelestialCalc<300000&&lastCelestialCalc>0)return;
+  lastCelestialCalc=now;
+  const loc=LOCATIONS[weatherKey];
+  const date=new Date();
+  if(!loc){
+    // No location — approximate from clock
+    const h=date.getHours()+date.getMinutes()/60;
+    celestialElevation=Math.sin(((h-6)/12)*Math.PI)*60;
+    sunAscending=h<12;
+    targetNightMode=celestialElevation<-5?1:celestialElevation<2?Math.max(0,(2-celestialElevation)/7):0;
+    targetCelestialIntensity=Math.max(0.02,celestialElevation>0?Math.sin(celestialElevation*Math.PI/180)*0.9:0.02);
+    targetCelestialAngle=(h/24)*180;
+    return;
+  }
+  const sun=sunPos(loc.lat,loc.lon,date);
+  celestialElevation=sun.el;
+  // Ascending: compare to 10 min ago
+  const sunOld=sunPos(loc.lat,loc.lon,new Date(now-600000));
+  sunAscending=sun.el>=sunOld.el;
+  if(sun.el>2){
+    targetNightMode=0;
+    targetCelestialAngle=((sun.az-90)+360)%360%180;
+    targetCelestialIntensity=Math.min(1,Math.max(0.12,Math.sin(sun.el*Math.PI/180)));
+    if(weatherData){weatherData.sunElevation=sun.el;weatherData.sunWarmth=Math.max(0,1-sun.el/45);}
+  } else if(sun.el>-12){
+    const blend=Math.max(0,Math.min(1,(-sun.el+2)/14));
+    targetNightMode=blend;
+    targetCelestialAngle=((sun.az-90)+360)%360%180;
+    targetCelestialIntensity=Math.max(0.04,(1-blend)*0.75);
+  } else {
+    targetNightMode=1;
+    const moon=moonPos(loc.lat,loc.lon,date);
+    if(moon.el>0){
+      targetCelestialAngle=((moon.az-90)+360)%360%180;
+      // Moon above horizon — use its brightness, floored so shadow stays perceptible
+      targetCelestialIntensity=Math.min(0.38,Math.max(0.12,Math.sin(moon.el*Math.PI/180)*moon.bright*0.32));
+    } else {
+      // Moon below horizon — ambient only, but keep a floor so work stays visible
+      targetCelestialIntensity=0.12;
+    }
+  }
+}
+
+// ── Weather fetch ─────────────────────────────────────────────
+async function fetchWeather(key){
+  if(weatherFetchPending)return;
+  weatherFetchPending=true;
+  const loc=LOCATIONS[key];if(!loc){weatherFetchPending=false;return;}
+  document.getElementById('weather-status').textContent='Fetching…';
+  try{
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,cloudcover,is_day&hourly=uv_index&forecast_days=1&timezone=auto`;
+    const res=await fetch(url);
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    const c=data.current;
+    const uv=data.hourly?.uv_index?.[new Date().getHours()]||4;
+    const clouds=(c.cloudcover||0)/100,isDay=c.is_day===1,temp=c.temperature_2m||15;
+    const intensityMod=isDay?Math.max(0.3,1-clouds*0.6)*Math.min(1.4,uv/5):Math.max(0.15,0.25-clouds*0.1);
+    const tempMod=((temp-10)/40)*0.6-clouds*0.35+(isDay?0.1:-0.4);
+    weatherData=Object.assign(weatherData||{},{intensityMod,tempMod,clouds,isDay,temp,uv,
+      loc, // store loc reference for clock
+      summary:`${loc.name} — ${isDay?'Day':'Night'}, ${Math.round(clouds*100)}% cloud, ${Math.round(temp)}°C`});
+    document.getElementById('weather-status').textContent=weatherData.summary;
+    startWeatherClock(loc);
+    lastCelestialCalc=0; // force celestial recalc
+  }catch(e){
+    document.getElementById('weather-status').textContent='Weather unavailable';
+  }
+  weatherFetchPending=false;
+}
+
+// Live clock — updates weather-status with time + coords every second
+let _clockInterval=null;
+function startWeatherClock(loc){
+  stopWeatherClock();
+  function tick(){
+    const time=new Date().toLocaleTimeString('en-GB',{
+      timeZone:loc.tz,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false
+    });
+    const lat=loc.lat.toFixed(4);
+    const lon=loc.lon.toFixed(4);
+    const cond=weatherData?.summary?.split('—')[1]?.trim()||'';
+    document.getElementById('weather-status').textContent=
+      `${loc.name} · ${time} · ${lat}, ${lon}${cond?' · '+cond:''}`;
+  }
+  tick();
+  _clockInterval=setInterval(tick,1000);
+}
+function stopWeatherClock(){
+  clearInterval(_clockInterval);_clockInterval=null;
+}
+
+document.getElementById('weather-select').onchange=function(){
+  weatherKey=this.value;weatherData=null;
+  if(weatherKey!=='none'){
+    const loc=LOCATIONS[weatherKey];
+    lastCelestialCalc=0;
+    startWeatherClock(loc); // start clock immediately, weather fetch fills in condition
+    fetchWeather(weatherKey);
+    clearInterval(window._wi);
+    window._wi=setInterval(()=>fetchWeather(weatherKey),30*60*1000);
+  } else {
+    stopWeatherClock();
+    document.getElementById('weather-status').textContent='No weather data';
+    clearInterval(window._wi);
+    lastCelestialCalc=0;
+    celestialElevation=45;nightMode=0;targetNightMode=0;
+    celestialIntensity=1;targetCelestialIntensity=1;
+  }
+};
+document.getElementById('btn-weather-fetch').onclick=()=>{if(weatherKey!=='none')fetchWeather(weatherKey);};
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER LOOP
+// ══════════════════════════════════════════════════════════════
+function frame(){
+  t+=0.016;
+  processMotion();
+  updateLivingWorld();
+  if(importedVideo)applyBgVideo();
+  else if(texDirty)buildTexture();
+  buildLightField();
+  cx.globalCompositeOperation='source-over';cx.globalAlpha=1;
+  cx.drawImage(texc,0,0);
+  cx.globalCompositeOperation='screen';cx.globalAlpha=1;
+  cx.drawImage(lfc,0,0);
+  buildShadowField();
+  cx.globalCompositeOperation='multiply';cx.globalAlpha=1;
+  cx.drawImage(shc,0,0);
+  cx.filter='none';
+  if(P.VIGNETTE>0.01)drawVignette();
+  raf=requestAnimationFrame(frame);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  INSTALLATION PRESETS
+// ══════════════════════════════════════════════════════════════
+let userPresets=JSON.parse(localStorage.getItem('zokna-presets')||'{}');
+let activePreset=null;
+function getAllPresets(){return{Default:DEFAULT_PRESET,...BUILTIN_PRESETS,...userPresets};}
+
+function applyPreset(name){
+  const all=getAllPresets();if(!all[name])return;
+  importedImage=null;importedVideo=false;
+  bgVid.pause();bgVid.src='';
+  document.getElementById('import-name').style.display='none';
+  document.getElementById('tex-import').value='';
+  Object.assign(P,DEFAULT_PRESET,all[name]);
+  document.querySelectorAll('.p[data-p]').forEach(el=>{
+    const k=el.dataset.p;if(!(k in P))return;
+    if(el.type==='checkbox')el.checked=!!P[k];else el.value=P[k];
+  });
+  document.querySelectorAll('.pv[data-pv]').forEach(el=>{
+    const k=el.dataset.pv;if(k in P&&DECIMAL[k]!==undefined)
+      el.textContent=typeof P[k]==='number'?P[k].toFixed(DECIMAL[k]):P[k];
+  });
+  document.getElementById('import-zone').style.display=P.MATERIAL==='import'?'flex':'none';
+  buildSlatMap();texDirty=true;activePreset=name;renderPresetBar();
+  // Flush motion state — prevents camera frame diff flooding on preset switch
+  // prevFrameSkip absorbs frames while camera exposure re-settles
+  motionField.fill(0);smoothField.fill(0);velocityField.fill(0);
+  shadowMemory.fill(0);prevFrameData=null;prevFrameSkip=4;
+}
+function savePreset(){
+  const name=document.getElementById('preset-name-input').value.trim();if(!name)return;
+  userPresets[name]=JSON.parse(JSON.stringify(P));
+  localStorage.setItem('zokna-presets',JSON.stringify(userPresets));
+  activePreset=name;renderPresetBar();
+}
+function deletePreset(){
+  if(!activePreset||activePreset in BUILTIN_PRESETS||activePreset==='Default')return;
+  delete userPresets[activePreset];
+  localStorage.setItem('zokna-presets',JSON.stringify(userPresets));
+  activePreset=null;renderPresetBar();
+}
+function renderPresetBar(){
+  const list=document.getElementById('preset-list');list.innerHTML='';
+  Object.keys(getAllPresets()).forEach(name=>{
+    const btn=document.createElement('button');
+    btn.className='preset-btn'+(name===activePreset?' active':'');
+    btn.textContent=name;
+    btn.onclick=()=>{applyPreset(name);document.getElementById('preset-name-input').value=name;};
+    list.appendChild(btn);
+  });
+}
+document.getElementById('btn-save-preset').onclick=savePreset;
+document.getElementById('btn-delete-preset').onclick=deletePreset;
+
+// ══════════════════════════════════════════════════════════════
+//  SCENE EDITOR MODAL
+// ══════════════════════════════════════════════════════════════
+const SCENE_COLORS={'Night':'#3a4a6a','Sunrise':'#9a7aaa','Morning':'#c8a848','Midday':'#aadaaa','Late Afternoon':'#da9a48','Sunset':'#da5a6a'};
+const SCENE_PARAM_DEFS=[
+  {sec:'Light field'},
+  {label:'Intensity',     key:'LINT',   min:0.05,max:1.0, step:0.01},
+  {label:'Coin size',     key:'CSZ',    min:20,  max:200, step:5},
+  {label:'Squeeze',       key:'SQZ',    min:0.2, max:1.0, step:0.05},
+  {label:'Angle °',       key:'LANG',   min:0,   max:180, step:1},
+  {label:'Edge soft',     key:'ESFT',   min:0.05,max:0.55,step:0.025},
+  {label:'Height',        key:'HEIGHT', min:0,   max:1,   step:0.05},
+  {label:'Size variety',  key:'COIN_VAR',min:0,  max:1,   step:0.05},
+  {label:'Shimmer',       key:'SHIMMER',min:0,   max:1.0, step:0.05},
+  {label:'Shim speed',    key:'SHIMSPD',min:0.05,max:3.0, step:0.05},
+  {label:'Sun drift',     key:'SUN_DRIFT',min:0, max:0.5, step:0.01},
+  {label:'Light colour',  key:'PAL',    type:'select', options:PAL_OPTIONS.map(o=>o[0]),labels:PAL_OPTIONS.map(o=>o[1])},
+  {label:'Shadow tint',   key:'SH_TINT',type:'color'},
+  {sec:'Motion shadow'},
+  {label:'Sensitivity',   key:'SENSITIVITY',min:1,max:60, step:1},
+  {label:'Depth',         key:'SDEPTH', min:0,   max:1.0, step:0.02},
+  {label:'Cohesion',      key:'COHESION',min:1,  max:6,   step:0.5},
+  {label:'Fade',          key:'FADE',   min:0.001,max:0.06,step:0.001},
+  {label:'Spread',        key:'SSFT',   min:0.1, max:4.0, step:0.1},
+];
+
+let activeSceneTab=USER_SCENE_NAMES[0];
+
+function buildSceneModal(){
+  // Tabs
+  const tabsEl=document.getElementById('scene-tabs');
+  tabsEl.innerHTML='';
+  USER_SCENE_NAMES.forEach(name=>{
+    const btn=document.createElement('button');
+    btn.className='scene-tab'+(name===activeSceneTab?' active':'');
+    const dot=document.createElement('span');
+    dot.className='scene-tab-dot';
+    dot.style.background=SCENE_COLORS[name]||'#888';
+    btn.appendChild(dot);
+    btn.appendChild(document.createTextNode(name));
+    btn.onclick=()=>{activeSceneTab=name;buildSceneModal();};
+    tabsEl.appendChild(btn);
+  });
+  // Content
+  const content=document.getElementById('scene-content');
+  content.innerHTML='';
+  const sc=scenes[activeSceneTab];
+  if(!sc){content.innerHTML='<p style="padding:1rem;color:#555;font-size:12px">Scene missing — click Reset all.</p>';return;}
+  SCENE_PARAM_DEFS.forEach(def=>{
+    if(def.sec){
+      const s=document.createElement('div');s.className='sc-section';s.textContent=def.sec;
+      content.appendChild(s);return;
+    }
+    const row=document.createElement('div');row.className='sc';
+    const lbl=document.createElement('label');lbl.textContent=def.label;
+    row.appendChild(lbl);
+    if(def.type==='select'){
+      const sel=document.createElement('select');
+      def.options.forEach((v,i)=>{
+        const o=document.createElement('option');o.value=v;o.textContent=def.labels[i];
+        if(sc[def.key]===v)o.selected=true;sel.appendChild(o);
+      });
+      sel.onchange=()=>{sc[def.key]=sel.value;onSceneChange();};
+      row.appendChild(sel);
+    } else if(def.type==='color'){
+      const inp=document.createElement('input');inp.type='color';inp.value=sc[def.key]||'#000000';
+      inp.oninput=()=>{sc[def.key]=inp.value;onSceneChange();};
+      row.appendChild(inp);
+    } else {
+      const inp=document.createElement('input');inp.type='range';
+      inp.min=def.min;inp.max=def.max;inp.step=def.step;
+      inp.value=sc[def.key]!=null?sc[def.key]:def.min;
+      const val=document.createElement('span');val.className='sv';
+      const fmt=def.step<0.01?3:def.step<0.1?2:def.step<1?1:0;
+      val.textContent=(+inp.value).toFixed(fmt);
+      inp.oninput=()=>{sc[def.key]=parseFloat(inp.value);val.textContent=sc[def.key].toFixed(fmt);onSceneChange();};
+      row.appendChild(inp);row.appendChild(val);
+    }
+    content.appendChild(row);
+  });
+}
+
+function onSceneChange(){
+  localStorage.setItem('zokna-scenes',JSON.stringify(scenes));
+  applySceneBlend(celestialElevation,sunAscending);
+  const s=document.getElementById('scene-status');s.textContent='Saved ✓';
+  clearTimeout(window._scSt);window._scSt=setTimeout(()=>{s.textContent='';},1500);
+}
+
+// Scene modal open/close
+document.getElementById('btn-edit-scenes').onclick=function(){
+  if(!USER_SCENE_NAMES.includes(activeSceneTab))activeSceneTab=USER_SCENE_NAMES[0];
+  buildSceneModal();
+  const m=document.getElementById('scene-modal');
+  m.style.display='flex';
+};
+document.getElementById('btn-scene-close').onclick=function(){
+  document.getElementById('scene-modal').style.display='none';
+};
+document.getElementById('scene-modal').addEventListener('click',function(e){
+  if(e.target===this)this.style.display='none';
+});
+// Scene reset / export / import
+document.getElementById('btn-scene-reset-all').onclick=function(){
+  if(!confirm('Reset all scenes to factory defaults?'))return;
+  USER_SCENE_NAMES.forEach(n=>Object.assign(scenes[n],DEFAULT_SCENES[n]));
+  localStorage.setItem('zokna-scenes',JSON.stringify(scenes));
+  buildSceneModal();
+  document.getElementById('scene-status').textContent='Reset ✓';
+  setTimeout(()=>document.getElementById('scene-status').textContent='',2000);
+};
+document.getElementById('btn-scene-export').onclick=function(){
+  const exp={};USER_SCENE_NAMES.forEach(n=>{exp[n]=scenes[n];});
+  const a=document.createElement('a');
+  a.href='data:application/json,'+encodeURIComponent(JSON.stringify(exp,null,2));
+  a.download='zokna-scenes.json';a.click();
+};
+document.getElementById('btn-scene-import-btn').onclick=()=>document.getElementById('scene-import-file').click();
+document.getElementById('scene-import-file').onchange=function(){
+  const f=this.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const imp=JSON.parse(e.target.result);
+      let ok=true;USER_SCENE_NAMES.forEach(n=>{if(!imp[n])ok=false;});
+      if(!ok){alert('Invalid scene file.');return;}
+      USER_SCENE_NAMES.forEach(n=>Object.assign(scenes[n],imp[n]));
+      localStorage.setItem('zokna-scenes',JSON.stringify(scenes));
+      buildSceneModal();
+      document.getElementById('scene-status').textContent='Imported ✓';
+      setTimeout(()=>document.getElementById('scene-status').textContent='',2000);
+    }catch(e){alert('Could not parse file.');}
+  };
+  reader.readAsText(f);this.value='';
+};
+
+// ══════════════════════════════════════════════════════════════
+//  CONTROLS — param input → P
+// ══════════════════════════════════════════════════════════════
+document.addEventListener('input',e=>{
+  const k=e.target.dataset.p;if(!k)return;
+  const v=e.target.type==='checkbox'?e.target.checked:e.target.type==='color'?e.target.value:parseFloat(e.target.value);
+  P[k]=v;
+  if(DECIMAL[k]!==undefined)
+    document.querySelectorAll(`.pv[data-pv="${k}"]`).forEach(s=>s.textContent=typeof v==='number'?v.toFixed(DECIMAL[k]):v);
+  if(k==='MATERIAL'){
+    document.getElementById('import-zone').style.display=v==='import'?'flex':'none';
+    if(v!=='import'){importedImage=null;importedVideo=false;bgVid.pause();bgVid.src='';}
+  }
+  if(SLAT_PARAMS.has(k)){buildSlatMap();texDirty=true;}
+  else if(TEX_PARAMS.has(k))texDirty=true;
+});
+document.addEventListener('change',e=>{
+  const k=e.target.dataset.p;if(!k||e.target.tagName!=='SELECT')return;
+  P[k]=e.target.value;
+  if(k==='MATERIAL'){
+    document.getElementById('import-zone').style.display=P[k]==='import'?'flex':'none';
+    if(P[k]!=='import'){importedImage=null;importedVideo=false;bgVid.pause();bgVid.src='';}
+  }
+  if(SLAT_PARAMS.has(k)){buildSlatMap();texDirty=true;}
+  else if(TEX_PARAMS.has(k))texDirty=true;
+});
+
+// Import image/video
+function loadImport(file){
+  if(!file)return;
+  document.getElementById('import-name').textContent='✓ '+file.name;
+  document.getElementById('import-name').style.display='block';
+  const url=URL.createObjectURL(file);
+  if(file.type.startsWith('video/')){
+    importedVideo=true;importedImage=null;
+    bgVid.src=url;bgVid.loop=true;bgVid.play();
+  } else {
+    importedVideo=false;
+    const img=new Image();img.onload=()=>{importedImage=img;texDirty=true;};img.src=url;
+  }
+}
+document.addEventListener('click',e=>{if(e.target.closest('#import-dropzone'))document.getElementById('tex-import').click();});
+document.addEventListener('dragover',e=>{if(e.target.closest('#import-dropzone'))e.preventDefault();});
+document.addEventListener('drop',e=>{const dz=e.target.closest('#import-dropzone');if(!dz)return;e.preventDefault();loadImport(e.dataTransfer.files[0]);});
+document.getElementById('tex-import').onchange=function(){loadImport(this.files[0]);this.value='';};
+
+// Recording
+let mediaRecorder=null,recChunks=[],recActive=false;
+document.getElementById('btn-rec').onclick=function(){
+  if(recActive){
+    if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();
+    recActive=false;this.textContent='⏺ Record';this.classList.remove('active');
+    document.getElementById('rec-indicator').style.display='none';
+  } else {
+    recChunks=[];
+    const stream=mainCv.captureStream(30);
+    const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(m=>MediaRecorder.isTypeSupported(m))||'video/webm';
+    mediaRecorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8000000});
+    mediaRecorder.ondataavailable=e=>{if(e.data.size>0)recChunks.push(e.data);};
+    mediaRecorder.onstop=()=>{
+      const blob=new Blob(recChunks,{type:'video/webm'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+      a.download='zokna-'+Date.now()+'.webm';a.click();
+    };
+    mediaRecorder.start(100);recActive=true;
+    this.textContent='⏹ Stop';this.classList.add('active');
+    document.getElementById('rec-indicator').style.display='flex';
+  }
+};
+document.getElementById('btn-grab').onclick=()=>{
+  const fl=document.getElementById('grab-flash');fl.style.display='block';fl.style.opacity='0.7';
+  setTimeout(()=>{fl.style.opacity='0';setTimeout(()=>fl.style.display='none',160);},60);
+  mainCv.toBlob(blob=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='zokna-'+Date.now()+'.png';a.click();},'image/png');
+};
+
+// Audio — only set up interval when audio is actually playing
+let audioCtx=null,audioSource=null,audioGain=null,audioBuf=null,audioStartTime=0,audioOffset=0,audioPlaying=false,audioInterval=null;
+function getACtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function playAudio(offset=0){
+  if(!audioBuf)return;const ctx=getACtx();
+  if(audioSource){try{audioSource.stop();}catch(e){}}
+  audioSource=ctx.createBufferSource();audioSource.buffer=audioBuf;
+  audioSource.loop=document.getElementById('audio-loop').checked;
+  if(!audioGain){audioGain=ctx.createGain();audioGain.connect(ctx.destination);}
+  audioGain.gain.value=parseFloat(document.getElementById('audio-vol').value);
+  audioSource.connect(audioGain);audioSource.start(0,offset%audioBuf.duration);
+  audioStartTime=ctx.currentTime-offset;audioPlaying=true;
+  document.getElementById('btn-audio-play').style.display='none';
+  document.getElementById('btn-audio-stop').style.display='inline-block';
+  if(audioInterval)clearInterval(audioInterval);
+  audioInterval=setInterval(()=>{
+    if(!audioPlaying||!audioBuf||!audioCtx)return;
+    const el=(audioCtx.currentTime-audioStartTime)%audioBuf.duration;
+    document.getElementById('audio-progress-fill').style.width=(el/audioBuf.duration*100)+'%';
+    const ts=t=>Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');
+    document.getElementById('audio-time').textContent=ts(el)+' / '+ts(audioBuf.duration);
+  },500);
+  audioSource.onended=()=>{
+    if(!audioSource.loop){
+      audioPlaying=false;clearInterval(audioInterval);audioInterval=null;
+      document.getElementById('btn-audio-play').style.display='inline-block';
+      document.getElementById('btn-audio-stop').style.display='none';
+    }
+  };
+}
+function stopAudio(){
+  if(audioSource){try{audioSource.stop();}catch(e){}}
+  audioPlaying=false;audioOffset=0;
+  clearInterval(audioInterval);audioInterval=null;
+  document.getElementById('btn-audio-play').style.display='inline-block';
+  document.getElementById('btn-audio-stop').style.display='none';
+}
+document.getElementById('btn-audio-import').onclick=()=>document.getElementById('audio-import').click();
+document.getElementById('audio-import').onchange=async function(){
+  const f=this.files[0];if(!f)return;
+  const ctx=getACtx();
+  document.getElementById('audio-name').textContent='Loading…';
+  document.getElementById('audio-name').style.display='inline';
+  audioBuf=await ctx.decodeAudioData(await f.arrayBuffer());
+  document.getElementById('audio-name').textContent='✓ '+f.name.slice(0,28);
+  document.getElementById('btn-audio-play').style.display='inline-block';
+  playAudio(0);
+};
+document.getElementById('btn-audio-play').onclick=()=>playAudio(audioOffset);
+document.getElementById('btn-audio-stop').onclick=stopAudio;
+document.getElementById('audio-vol').oninput=function(){
+  document.getElementById('audio-vol-out').textContent=parseFloat(this.value).toFixed(2);
+  if(audioGain)audioGain.gain.value=parseFloat(this.value);
+};
+document.getElementById('audio-loop').onchange=function(){if(audioSource)audioSource.loop=this.checked;};
+document.getElementById('audio-progress').onclick=function(e){
+  if(!audioBuf)return;
+  audioOffset=(e.clientX-this.getBoundingClientRect().left)/this.offsetWidth*audioBuf.duration;
+  if(audioPlaying)playAudio(audioOffset);
+};
+document.addEventListener('click',()=>{if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();});
+
+// Mirror / invert / reset
+document.getElementById('btn-mirror').onclick=function(){
+  mirrored=!mirrored;this.style.opacity=mirrored?'1':'0.4';prevFrameData=null;
+};
+document.getElementById('btn-invert').onclick=function(){
+  inverted=!inverted;this.classList.toggle('on',inverted);
+  motionField.fill(0);smoothField.fill(0);prevFrameData=null;
+};
+document.getElementById('btn-reset').onclick=()=>{
+  motionField.fill(0);smoothField.fill(0);velocityField.fill(0);
+  shadowMemory.fill(0);prevFrameData=null;prevFrameSkip=4;
+};
+
+// Kiosk
+function enterKiosk(){kioskMode=true;document.body.classList.add('kiosk');if(mainCv.requestFullscreen)mainCv.requestFullscreen().catch(()=>{});}
+function exitKiosk(){kioskMode=false;document.body.classList.remove('kiosk');if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});}
+document.getElementById('btn-kiosk').onclick=enterKiosk;
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&kioskMode)exitKiosk();
+  if(e.shiftKey&&e.key==='K'){kioskMode?exitKiosk():enterKiosk();}
+  if(e.shiftKey&&e.key==='S'&&kioskMode){document.body.classList.remove('kiosk');setTimeout(()=>{if(kioskMode)document.body.classList.add('kiosk');},8000);}
+});
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&kioskMode)exitKiosk();});
+
+// Camera
+async function getCameras(){
+  const devs=await navigator.mediaDevices.enumerateDevices();
+  const sel=document.getElementById('cam-select');sel.innerHTML='';
+  devs.filter(d=>d.kind==='videoinput').forEach((d,i)=>{
+    const o=document.createElement('option');o.value=d.deviceId;
+    o.textContent=d.label||'Camera '+(i+1);sel.appendChild(o);
+  });
+}
+async function startCamera(deviceId){
+  if(currentStream)currentStream.getTracks().forEach(t=>t.stop());
+  camReady=false;prevFrameData=null;
+  const c=deviceId?{video:{deviceId:{exact:deviceId},width:{ideal:640},height:{ideal:480}},audio:false}
+                   :{video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false};
+  currentStream=await navigator.mediaDevices.getUserMedia(c);
+  cam.srcObject=currentStream;await cam.play();camReady=true;
+}
+document.getElementById('cam-select').onchange=e=>startCamera(e.target.value);
+
+document.getElementById('btn-start').onclick=async function(){
+  const err=document.getElementById('err-msg');
+  try{
+    await startCamera(null);await getCameras();
+    document.getElementById('start-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    buildSlatMap();texDirty=true;
+    renderPresetBar();applyPreset('Default');
+    if(raf)cancelAnimationFrame(raf);
+    raf=requestAnimationFrame(frame);
+  }catch(e){err.textContent='Camera error: '+e.message;err.style.display='block';}
+};
+</script>
+</body>
+</html>
